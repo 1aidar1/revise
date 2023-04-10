@@ -1,0 +1,72 @@
+package txrepo
+
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type TxRepo struct {
+	Db *pgxpool.Pool
+}
+
+func (r *TxRepo) Do(ctx context.Context, f func() error) error {
+	tx, err := r.Db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback(ctx)
+			panic(p)
+		} else if err != nil {
+			tx.Rollback(ctx)
+		} else {
+			tx.Commit(ctx)
+		}
+	}()
+	err = f()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+
+package txrepo
+
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type TxRepo struct {
+	Db *pgxpool.Pool
+}
+
+func (r *TxRepo) Do(ctx context.Context, f func() error) error {
+	tx, err := r.Db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback(ctx)
+			panic(p)
+		} else if err != nil {
+			tx.Rollback(ctx)
+		} else {
+			tx.Commit(ctx)
+		}
+	}()
+	return f()
+}
+
+лучше использовать 1 вариант
+
+In this implementation, the Do function has a defer block that rolls back the transaction if f() panics. This is usually done to prevent data corruption, but it also means that any panic that occurs inside f() will not propagate up the call stack. Instead, the panic will be caught by the defer block, the transaction will be rolled back, and then the panic will be re-thrown, effectively hiding the error from the calling function.
+
+If myFunc panics, the Do function will catch the panic, roll back the transaction, and then re-panic. The anotherFunc function will not see the panic and will return nil, causing the program to exit without any indication that an error occurred.
